@@ -277,7 +277,7 @@ export default function BudgetApp() {
   const TABS = [{ id: "dashboard", label: "Dashboard" }, { id: "tracker", label: "Tracker" }, { id: "birthdays", label: "Birthdays" }, { id: "ledger", label: "Ledger" }];
 
   return (
-    <div style={{ backgroundColor: "#FDFBF7", minHeight: "100vh", maxWidth: "430px", margin: "0 auto", fontFamily: "'Segoe UI',system-ui,sans-serif", paddingBottom: "80px", position: "relative" }}>
+    <div style={{ backgroundColor: "#FDFBF7", minHeight: "fit-content", maxWidth: "430px", margin: "0 auto", fontFamily: "'Segoe UI',system-ui,sans-serif", paddingBottom: "80px", position: "relative" }}>
       {!isFamilyDone && (
         <div style={{ backgroundColor: "#DC2626", color: "#fff", padding: "11px 16px", textAlign: "center", fontWeight: "bold", fontSize: "13px" }}>
           Action Required: Family Support and Charity not cleared yet!
