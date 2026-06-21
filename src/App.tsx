@@ -118,7 +118,7 @@ export default function BudgetApp() {
           <div style={{textAlign:"right"}}>
             <div style={{fontSize:"10px",color:"#92400E",marginBottom:"4px"}}>Price / gram</div>
             <div style={{display:"flex",alignItems:"center",gap:"4px"}}>
-              <input type="number" value={goldP} onChange={e=>setGoldP(e.target.value)} style={{width:"72px",padding:"7px",borderRadius:"8px",border:"1.5px solid #FDE68A",textAlign:"center",fontSize:"14px",fontWeight:"bold"}}/>
+              <input type="text" inputMode="numeric" pattern="[0-9]*" value={goldP} onChange={e=>setGoldP(e.target.value)} style={{width:"72px",padding:"7px",borderRadius:"8px",border:"1.5px solid #FDE68A",textAlign:"center",fontSize:"14px",fontWeight:"bold"}}/>
               <span style={{fontSize:"11px",color:"#92400E"}}>EGP</span>
             </div>
           </div>
@@ -158,7 +158,7 @@ export default function BudgetApp() {
         {[{k:"outings",label:"Outings and Trips",target:T_OUTINGS,rem:remOutings},{k:"shopping",label:"Shopping",target:T_SHOPPING,rem:remShopping},{k:"laser",label:"Laser Session",target:T_LASER,rem:remLaser},{k:"gym",label:"Gym Subscription",target:T_GYM,rem:remGym}].map(f=>(
           <div key={f.k} style={{marginBottom:"12px"}}>
             <RowLabel label={f.label} target={f.target} rem={f.rem} blue={false}/>
-            <input type="number" value={actual[f.k]||""} placeholder="Enter amount" onChange={e=>setNum(f.k,e.target.value)} style={numInput(f.rem>=0,false)}/>
+            <input type="text" inputMode="numeric" pattern="[0-9]*" value={actual[f.k]||""} placeholder="Enter amount" onChange={e=>setNum(f.k,e.target.value)} style={numInput(f.rem>=0,false)}/>
           </div>
         ))}
       </div>
@@ -168,7 +168,7 @@ export default function BudgetApp() {
         {[{k:"food",label:"Supermarket Food",target:T_FOOD,rem:remFood},{k:"transport",label:"Transport and Travel",target:T_TRANSPORT,rem:remTransport}].map(f=>(
           <div key={f.k} style={{marginBottom:"12px"}}>
             <RowLabel label={f.label} target={f.target} rem={f.rem} blue={true}/>
-            <input type="number" value={actual[f.k]||""} placeholder="Enter amount" onChange={e=>setNum(f.k,e.target.value)} style={{...numInput(f.rem>=0,true),borderColor:f.rem>=0?"#BFDBFE":"#FECACA"}}/>
+            <input type="text" inputMode="numeric" pattern="[0-9]*" value={actual[f.k]||""} placeholder="Enter amount" onChange={e=>setNum(f.k,e.target.value)} style={{...numInput(f.rem>=0,true),borderColor:f.rem>=0?"#BFDBFE":"#FECACA"}}/>
           </div>
         ))}
         <div>
