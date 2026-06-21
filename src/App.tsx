@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
+import type { CSSProperties } from "react";
 
-function DonutChart({ pct, color }) {
+function DonutChart({ pct, color }: { pct: number; color?: string }) {
   const r = 68, cx = 90, cy = 90;
   const circ = 2 * Math.PI * r;
   const offset = circ - (Math.min(pct, 100) / 100) * circ;
@@ -18,8 +19,8 @@ function DonutChart({ pct, color }) {
 }
 
 const ls = {
-  get: (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
-  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  get: (k: string, d: any) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set: (k: string, v: any) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 
 const ALL_MONTHS = [
@@ -67,16 +68,16 @@ export default function BudgetApp() {
     :extraCash<0?"Careful Marmar! You have breached your budget pool. Extra cash is negative."
     :"Welcome back, Marmar! Your extra cash tracking is fully optimized.";
 
-  const fmt=n=>Number(n).toLocaleString();
-  const setNum=(f,v)=>setActual(p=>({...p,[f]:Math.max(0,Number(v)||0)}));
-  const toggleCheck=f=>setChecks(p=>({...p,[f]:!p[f]}));
-  const saveMonth=()=>setHistory(p=>p.map(it=>it.month===logMonth?{...it,savings:F_GOLD,spent:totalSpent,extraCash,status:"Logged"}:it));
+  const fmt=(n: number | string | undefined)=>Number(n).toLocaleString();
+  const setNum=(f: string, v: string | number)=>setActual((p: any)=>({...p,[f]:Math.max(0,Number(v)||0)}));
+  const toggleCheck=(f: string)=>setChecks((p: any)=>({...p,[f]:!p[f]}));
+  const saveMonth=()=>setHistory((p: any)=>p.map((it: any)=>it.month===logMonth?{...it,savings:F_GOLD,spent:totalSpent,extraCash,status:"Logged"}:it));
   const resetMonth=()=>{if(window.confirm("Reset this month workspace?")){setActual({outings:0,shopping:0,laser:0,gym:0,food:0,transport:0});setChecks({family:false,charity:false});}};
 
-  const card=(bg="#fff",border="#F0EDE6")=>({backgroundColor:bg,borderRadius:"20px",padding:"18px 20px",border:"1.5px solid "+border,marginBottom:"14px"});
-  const numInput=(ok,blue)=>({width:"100%",padding:"10px 12px",borderRadius:"10px",fontSize:"14px",border:"1.5px solid "+(ok?(blue?"#BFDBFE":"#DDD6FE"):"#FECACA"),backgroundColor:ok?"#fff":"#FFF5F5",boxSizing:"border-box"});
+  const card=(bg="#fff",border="#F0EDE6"): CSSProperties=>({backgroundColor:bg,borderRadius:"20px",padding:"18px 20px",border:"1.5px solid "+border,marginBottom:"14px"});
+  const numInput=(ok: boolean, blue?: boolean): CSSProperties=>({width:"100%",padding:"10px 12px",borderRadius:"10px",fontSize:"14px",border:"1.5px solid "+(ok?(blue?"#BFDBFE":"#DDD6FE"):"#FECACA"),backgroundColor:ok?"#fff":"#FFF5F5",boxSizing:"border-box"});
 
-  const RowLabel=({label,target,rem,blue})=>(
+  const RowLabel=({label,target,rem,blue}: {label: string; target?: number; rem: number; blue?: boolean})=>(
     <div style={{display:"flex",justifyContent:"space-between",fontSize:"12px",marginBottom:"5px"}}>
       <span style={{fontWeight:"500",color:"#374151"}}>{label} <span style={{color:"#9CA3AF"}}>({fmt(target)})</span></span>
       <span style={{fontWeight:"bold",color:rem>=0?(blue?"#1D4ED8":"#7C3AED"):"#DC2626"}}>{rem>=0?"Left: "+fmt(rem):"Over: +"+fmt(Math.abs(rem))}</span>
@@ -218,7 +219,7 @@ export default function BudgetApp() {
             <button onClick={saveMonth} style={{backgroundColor:"#1E3A5F",color:"#fff",border:"none",padding:"8px 14px",borderRadius:"8px",fontSize:"13px",fontWeight:"bold",cursor:"pointer"}}>Save</button>
           </div>
         </div>
-        {history.map(it=>(
+        {history.map((it: any)=>(
           <div key={it.month} style={{backgroundColor:it.status!=="Upcoming"?"#F0FFF4":"#FAFAFA",borderRadius:"12px",padding:"12px 14px",marginBottom:"8px",border:"1px solid "+(it.status!=="Upcoming"?"#BBF7D0":"#E5E7EB")}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <span style={{fontWeight:"600",fontSize:"14px",color:"#1F2937"}}>{it.month}</span>
