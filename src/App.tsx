@@ -1,353 +1,274 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
+
+function DonutChart({ pct, color }) {
+  const r = 68, cx = 90, cy = 90;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (Math.min(pct, 100) / 100) * circ;
+  return (
+    <svg width="180" height="180" viewBox="0 0 180 180">
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#E5E7EB" strokeWidth="15" />
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth="15"
+        strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+        transform={"rotate(-90 " + cx + " " + cy + ")"}
+        style={{ transition: "stroke-dashoffset 0.6s ease" }} />
+      <text x={cx} y={cy - 6} textAnchor="middle" fill={color} fontSize="28" fontWeight="bold" fontFamily="system-ui">{pct}%</text>
+      <text x={cx} y={cy + 14} textAnchor="middle" fill="#9CA3AF" fontSize="11" fontFamily="system-ui">of salary used</text>
+    </svg>
+  );
+}
+
+const ls = {
+  get: (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+const ALL_MONTHS = [
+  "January 2026","February 2026","March 2026","April 2026","May 2026","June 2026",
+  "July 2026","August 2026","September 2026","October 2026","November 2026","December 2026",
+];
+const HISTORY_INIT = ALL_MONTHS.map(m => ({ month:m, savings:0, spent:0, extraCash:0, status:"Upcoming" }));
 
 export default function BudgetApp() {
-  const totalSalary = 28000;
-  
-  // 1. Core States with LocalStorage Auto-Save
-  const [actual, setActual] = useState(() => {
-    const saved = localStorage.getItem('marmar_actual');
-    return saved ? JSON.parse(saved) : { outingsAndTrips: 0, shopping: 0, laser: 0, gym: 0, food: 0, transport: 0 };
-  });
+  const SALARY=28000,T_OUTINGS=2000,T_SHOPPING=1200,T_LASER=1200,T_GYM=800,T_RENT=5000,T_FOOD=1200,T_TRANSPORT=4500;
+  const F_FAMILY=6300,F_CHARITY=1000,F_GOLD=4000,F_BDAY_BASE=800;
 
-  const [checklist, setChecklist] = useState(() => {
-    const saved = localStorage.getItem('marmar_checklist');
-    return saved ? JSON.parse(saved) : { familyAndRoy: false, charity: false };
-  });
+  const [tab,setTab]           = useState("dashboard");
+  const [actual,setActual]     = useState(() => ls.get("mm_actual",{outings:0,shopping:0,laser:0,gym:0,food:0,transport:0}));
+  const [checks,setChecks]     = useState(() => ls.get("mm_checks",{family:false,charity:false}));
+  const [goldP,setGoldP]       = useState(() => ls.get("mm_goldp",4000));
+  const [history,setHistory]   = useState(() => ls.get("mm_history",HISTORY_INIT));
+  const [logMonth,setLogMonth] = useState("July 2026");
 
-  const [goldPrice, setGoldPrice] = useState(() => {
-    return localStorage.getItem('marmar_gold_price') || '4000'; 
-  });
+  useEffect(() => { ls.set("mm_actual",  actual);  }, [actual]);
+  useEffect(() => { ls.set("mm_checks",  checks);  }, [checks]);
+  useEffect(() => { ls.set("mm_goldp",   goldP);   }, [goldP]);
+  useEffect(() => { ls.set("mm_history", history); }, [history]);
 
-  // Yearly Ledger State (Starting July 2026 for the new job)
-  const [yearlyHistory, setYearlyHistory] = useState(() => {
-    const saved = localStorage.getItem('marmar_yearly_history');
-    return saved ? JSON.parse(saved) : [
-      { month: 'July 2026', savings: 0, spent: 0, extraCashSaved: 0, status: 'Upcoming' },
-      { month: 'August 2026', savings: 0, spent: 0, extraCashSaved: 0, status: 'Upcoming' },
-      { month: 'September 2026', savings: 0, spent: 0, extraCashSaved: 0, status: 'Upcoming' },
-      { month: 'October 2026', savings: 0, spent: 0, extraCashSaved: 0, status: 'Upcoming' },
-      { month: 'November 2026', savings: 0, spent: 0, extraCashSaved: 0, status: 'Upcoming' },
-      { month: 'December 2026', savings: 0, spent: 0, extraCashSaved: 0, status: 'Upcoming' }
-    ];
-  });
+  const isFamilyDone = checks.family && checks.charity;
+  const remOutings=T_OUTINGS-actual.outings, remShopping=T_SHOPPING-actual.shopping;
+  const remLaser=T_LASER-actual.laser, remGym=T_GYM-actual.gym;
+  const remFood=T_FOOD-actual.food, remTransport=T_TRANSPORT-actual.transport;
+  const surpOutings=remOutings>0?remOutings:0, surpShopping=remShopping>0?remShopping:0, surpTransport=remTransport>0?remTransport:0;
+  const birthdayTotal=F_BDAY_BASE+surpOutings+surpShopping+surpTransport;
+  const varSpent=actual.outings+actual.shopping+actual.laser+actual.gym+T_RENT+actual.food+actual.transport;
+  const totalSpent=F_FAMILY+F_CHARITY+F_GOLD+F_BDAY_BASE+varSpent;
+  const extraCash=SALARY-totalSpent;
+  const pct=Math.min(Math.round((totalSpent/SALARY)*100),100);
+  const goldGrams=Number(goldP)>0?(F_GOLD/Number(goldP)).toFixed(2):"0.00";
 
-  const [selectedMonthLog, setSelectedMonthLog] = useState('July 2026');
-  const [motivation, setMotivation] = useState('Welcome back, Marmar! Let\'s manage this month efficiently. 🚀');
+  const health=pct<75
+    ?{color:"#22C55E",bg:"#F0FFF4",border:"#BBF7D0",badge:"#16A34A",status:"On track"}
+    :pct<95
+    ?{color:"#F59E0B",bg:"#FFFBEB",border:"#FDE68A",badge:"#D97706",status:"Getting close"}
+    :{color:"#EF4444",bg:"#FFF1F2",border:"#FECDD3",badge:"#DC2626",status:"Over budget"};
 
-  // Sync with LocalStorage
-  useEffect(() => {
-    localStorage.setItem('marmar_actual', JSON.stringify(actual));
-  }, [actual]);
+  const motivation=!isFamilyDone
+    ?"Reminder: Please prioritize Family Support and Charity first, Marmar!"
+    :extraCash<0?"Careful Marmar! You have breached your budget pool. Extra cash is negative."
+    :"Welcome back, Marmar! Your extra cash tracking is fully optimized.";
 
-  useEffect(() => {
-    localStorage.setItem('marmar_checklist', JSON.stringify(checklist));
-  }, [checklist]);
+  const fmt=n=>Number(n).toLocaleString();
+  const setNum=(f,v)=>setActual(p=>({...p,[f]:Math.max(0,Number(v)||0)}));
+  const toggleCheck=f=>setChecks(p=>({...p,[f]:!p[f]}));
+  const saveMonth=()=>setHistory(p=>p.map(it=>it.month===logMonth?{...it,savings:F_GOLD,spent:totalSpent,extraCash,status:"Logged"}:it));
+  const resetMonth=()=>{if(window.confirm("Reset this month workspace?")){setActual({outings:0,shopping:0,laser:0,gym:0,food:0,transport:0});setChecks({family:false,charity:false});}};
 
-  useEffect(() => {
-    localStorage.setItem('marmar_gold_price', goldPrice);
-  }, [goldPrice]);
+  const card=(bg="#fff",border="#F0EDE6")=>({backgroundColor:bg,borderRadius:"20px",padding:"18px 20px",border:"1.5px solid "+border,marginBottom:"14px"});
+  const numInput=(ok,blue)=>({width:"100%",padding:"10px 12px",borderRadius:"10px",fontSize:"14px",border:"1.5px solid "+(ok?(blue?"#BFDBFE":"#DDD6FE"):"#FECACA"),backgroundColor:ok?"#fff":"#FFF5F5",boxSizing:"border-box"});
 
-  useEffect(() => {
-    localStorage.setItem('marmar_yearly_history', JSON.stringify(yearlyHistory));
-  }, [yearlyHistory]);
+  const RowLabel=({label,target,rem,blue})=>(
+    <div style={{display:"flex",justifyContent:"space-between",fontSize:"12px",marginBottom:"5px"}}>
+      <span style={{fontWeight:"500",color:"#374151"}}>{label} <span style={{color:"#9CA3AF"}}>({fmt(target)})</span></span>
+      <span style={{fontWeight:"bold",color:rem>=0?(blue?"#1D4ED8":"#7C3AED"):"#DC2626"}}>{rem>=0?"Left: "+fmt(rem):"Over: +"+fmt(Math.abs(rem))}</span>
+    </div>
+  );
 
-  // 2. Updated Targets (Clean Numbers for the Eye)
-  const targetOutings = 2000;     
-  const targetShopping = 1200;    
-  const targetLaser = 1200;       
-  const targetGym = 800;          
-  const targetRent = 5000;        
-  const targetFood = 1200;        
-  const targetTransport = 4500;   
-
-  const fixedFamilyAndRoy = 6300; 
-  const fixedCharity = 1000;      
-  const fixedSavingsGold = 4000;  // 4000 Gold savings anchor
-  const fixedBirthdayBase = 800;  // 800 birthday fund base
-
-  // Available pools
-  const totalDynamicBudgetPool = targetOutings + targetShopping + targetLaser + targetGym + targetRent + targetFood + targetTransport;
-  const isFamilyPaid = checklist.familyAndRoy && checklist.charity;
-
-  // Individual Remaining calculations
-  const remainingOutings = targetOutings - actual.outingsAndTrips;
-  const remainingShopping = targetShopping - actual.shopping;
-  const remainingLaser = targetLaser - actual.laser;
-  const remainingGym = targetGym - actual.gym;
-  const remainingFood = targetFood - actual.food;
-  const remainingTransport = targetTransport - actual.transport;
-
-  // Rule Checklist: Any overflow/surplus from Outings, Shopping, or Transport goes directly into Birthday Fund!
-  const outingsSurplus = remainingOutings > 0 ? remainingOutings : 0;
-  const shoppingSurplus = remainingShopping > 0 ? remainingShopping : 0;
-  const transportSurplus = remainingTransport > 0 ? remainingTransport : 0;
-  
-  const currentMonthBirthdayFundTotal = fixedBirthdayBase + outingsSurplus + shoppingSurplus + transportSurplus;
-
-  // Calculate actual total spent (Rent is always fully spent for safety)
-  const actualDynamicSpent = actual.outingsAndTrips + actual.shopping + actual.laser + actual.gym + targetRent + actual.food + actual.transport;
-  
-  // Overall Financial Calculations
-  const totalSpentOverall = fixedFamilyAndRoy + fixedCharity + fixedSavingsGold + fixedBirthdayBase + actualDynamicSpent;
-  
-  // *** الكاش الصافي النهائي المحوّش زيادة برة الـ 4000 والـ 800 هدايا ***
-  const extraCashSavedEndofMonth = totalSalary - totalSpentOverall;
-
-  const isOverbudgetOverall = extraCashSavedEndofMonth < 0;
-
-  // Dynamic Motivation Updates
-  useEffect(() => {
-    if (!isFamilyPaid) {
-      setMotivation(`📌 Reminder: Please prioritize sending Family Support, Roy's treats & Charity first!`);
-    } else if (isOverbudgetOverall) {
-      setMotivation(`⚠️ Careful Marmar! You have breached your budget pool. Extra cash savings are negative.`);
-    } else {
-      setMotivation(`Welcome back, Marmar! Your extra cash tracking is fully optimized. 🌟`);
-    }
-  }, [actual, isOverbudgetOverall, isFamilyPaid]);
-
-  // Gold Grams calculation
-  const goldGrams = Number(goldPrice) > 0 ? (fixedSavingsGold / Number(goldPrice)).toFixed(2) : '0.00';
-
-  // Handlers
-  const handleInputChange = (field, value) => {
-    setActual(prev => ({ ...prev, [field]: Number(value) || 0 }));
-  };
-
-  const handleCheckChange = (field) => {
-    setChecklist(prev => ({ ...prev, [field]: !prev[field] }));
-  };
-
-  const logCurrentMonthToYear = () => {
-    setYearlyHistory(prev => prev.map(item => {
-      if (item.month === selectedMonthLog) {
-        return { ...item, savings: fixedSavingsGold, spent: totalSpentOverall, extraCashSaved: extraCashSavedEndofMonth, status: 'Logged ✓' };
-      }
-      return item;
-    }));
-  };
-
-  const resetCurrentMonth = () => {
-    if(window.confirm("Are you sure you want to reset current month workspace?")) {
-      setActual({ outingsAndTrips: 0, shopping: 0, laser: 0, gym: 0, food: 0, transport: 0 });
-      setChecklist({ familyAndRoy: false, charity: false });
-    }
-  };
-
-  return (
-    <div style={{ backgroundColor: '#FDFBF7', color: '#4A4A4A', minHeight: '100vh', padding: '30px', fontFamily: 'Segoe UI, sans-serif', direction: 'ltr' }}>
-      
-      {/* Critical Family Alert Banner */}
-      {!isFamilyPaid && (
-        <div style={{ backgroundColor: '#D32F2F', color: '#ffffff', padding: '14px 20px', borderRadius: '12px', textAlign: 'center', fontWeight: 'bold', maxWidth: '1000px', margin: '0 auto 20px auto', boxShadow: '0 4px 15px rgba(211,47,47,0.3)', fontSize: '15px' }}>
-          🚨 Action Required: Family Support, Roy's treats, or Charity (العشور) haven't been cleared for this cycle yet!
-        </div>
-      )}
-
-      {/* 1. Header & Motivation Banner */}
-      <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '28px', border: '2px solid #F1EDE4', marginBottom: '30px', maxWidth: '1000px', margin: '0 auto 30px auto', boxShadow: '0 10px 25px rgba(143,168,155,0.08)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+  const Dashboard=()=>(
+    <div style={{padding:"14px"}}>
+      <div style={{...card(health.bg,health.border)}}>
+        <div style={{fontWeight:"bold",color:"#1F2937",fontSize:"15px",marginBottom:"14px"}}>BUDGET HEALTH</div>
+        <div style={{display:"flex",alignItems:"center",gap:"12px",justifyContent:"center",flexWrap:"wrap"}}>
+          <DonutChart pct={pct} color={health.color}/>
           <div>
-            <h1 style={{ color: '#2C3E35', fontSize: '32px', fontWeight: 'bold', margin: '0' }}>Marmar Budget Hub 🚀</h1>
-            <p style={{ color: '#7A8B76', fontSize: '14px', margin: '4px 0 0 0' }}>Advanced Granular Budgeting & Extra Cash Savings Calculator</p>
+            <div style={{marginBottom:"16px"}}><div style={{fontSize:"12px",color:"#6B7280"}}>Spent so far</div><div style={{fontSize:"22px",fontWeight:"bold",color:"#1F2937"}}>{fmt(totalSpent)} EGP</div></div>
+            <div><div style={{fontSize:"12px",color:"#6B7280"}}>Remaining</div><div style={{fontSize:"22px",fontWeight:"bold",color:health.color}}>{fmt(Math.max(0,extraCash))} EGP</div></div>
           </div>
-          <button onClick={resetCurrentMonth} style={{ backgroundColor: '#F4EBE8', color: '#D32F2F', border: 'none', padding: '10px 18px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>🔄 Reset Month</button>
         </div>
-        
-        <div style={{ backgroundColor: '#FAF7F2', padding: '12px 18px', borderRadius: '12px', border: '1px solid #EAE2D5', marginTop: '16px', fontSize: '13px', fontWeight: '500', color: '#5C6B59' }}>
-          💬 {motivation}
-        </div>
+        <div style={{textAlign:"center",marginTop:"12px",fontWeight:"600",fontSize:"14px",color:health.badge}}>{health.status}</div>
+      </div>
 
-        {/* Live Counters */}
-        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginTop: '20px' }}>
-          
-          {/* العداد المطلوب: وفر الكاش الصافي بعيداً عن الذهب والهدايا */}
-          <div style={{ backgroundColor: extraCashSavedEndofMonth >= 0 ? '#E8F5E9' : '#FFEBEE', padding: '16px 20px', borderRadius: '16px', border: extraCashSavedEndofMonth >= 0 ? '1px solid #C8E6C9' : '1px solid #FFCDD2', flex: '1 1 250px' }}>
-            <span style={{ fontSize: '11px', color: extraCashSavedEndofMonth >= 0 ? '#2E7D32' : '#C62828', display: 'block', fontWeight: 'bold', textTransform: 'uppercase' }}>💰 صافي تحويش كاش إضافي (برة الذهب والهدايا)</span>
-            <span style={{ fontSize: '26px', fontWeight: 'bold', color: extraCashSavedEndofMonth >= 0 ? '#1B5E20' : '#C62828', display: 'block', marginTop: '4px' }}>{extraCashSavedEndofMonth.toLocaleString()} EGP</span>
-            <span style={{ fontSize: '11px', color: '#666', display: 'block', marginTop: '4px' }}>هذا هو المبلغ المتبقي الفعلي في جيبك نهاية الشهر.</span>
-          </div>
-          
-          <div style={{ backgroundColor: '#E3F2FD', padding: '16px 20px', borderRadius: '16px', border: '1px solid #BBDEFB', flex: '1 1 200px' }}>
-            <span style={{ fontSize: '11px', color: '#1976D2', display: 'block', fontWeight: 'bold', textTransform: 'uppercase' }}>Fixed Gold Savings Asset</span>
-            <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#1565C0', display: 'block', marginTop: '4px' }}>{fixedSavingsGold.toLocaleString()} EGP</span>
-          </div>
+      <div style={{...card(extraCash>=0?"#F0FFF4":"#FFF1F2",extraCash>=0?"#BBF7D0":"#FECDD3")}}>
+        <div style={{fontSize:"13px",color:"#6B7280",marginBottom:"2px"}}>Net Extra Cash Saved</div>
+        <div style={{fontSize:"36px",fontWeight:"bold",color:extraCash>=0?"#15803D":"#DC2626",lineHeight:1.1}}>{extraCash>=0?"+":""}{fmt(extraCash)} EGP</div>
+        <div style={{fontSize:"12px",color:"#9CA3AF",marginTop:"4px"}}>After all expenses, obligations and gold savings</div>
+      </div>
 
-          <div style={{ backgroundColor: '#FFFDE7', padding: '16px 20px', borderRadius: '16px', border: '1px solid #FFF59D', flex: '1 1 200px' }}>
-            <span style={{ fontSize: '11px', color: '#F57F17', display: 'block', fontWeight: 'bold', textTransform: 'uppercase' }}>Gold Weight Tracker 🪙</span>
-            <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#E65100', display: 'block', marginTop: '4px' }}>{goldGrams} Grams</span>
-            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
-              <span>24k Gold Price:</span>
-              <input type="number" value={goldPrice} onChange={(e) => setGoldPrice(e.target.value)} style={{ width: '65px', padding: '2px', borderRadius: '4px', border: '1px solid #FFF59D', textAlign: 'center' }} />
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"14px"}}>
+        <div style={{backgroundColor:"#EFF6FF",borderRadius:"20px",padding:"16px",border:"1.5px solid #BFDBFE"}}><div style={{fontSize:"11px",fontWeight:"bold",color:"#1D4ED8"}}>GOLD SAVINGS</div><div style={{fontSize:"22px",fontWeight:"bold",color:"#1E40AF",marginTop:"4px"}}>{fmt(F_GOLD)} EGP</div></div>
+        <div style={{backgroundColor:"#FDF2F8",borderRadius:"20px",padding:"16px",border:"1.5px solid #F9A8D4"}}><div style={{fontSize:"11px",fontWeight:"bold",color:"#BE185D"}}>BIRTHDAY FUND</div><div style={{fontSize:"22px",fontWeight:"bold",color:"#9D174D",marginTop:"4px"}}>{fmt(birthdayTotal)} EGP</div></div>
+      </div>
+
+      <div style={{...card("#FFFBEB","#FDE68A")}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontSize:"11px",fontWeight:"bold",color:"#D97706"}}>GOLD WEIGHT TRACKER</div>
+            <div style={{fontSize:"26px",fontWeight:"bold",color:"#92400E",marginTop:"4px"}}>{goldGrams} Grams 24k</div>
+            <div style={{fontSize:"11px",color:"#B45309",marginTop:"3px"}}>{fmt(F_GOLD)} / {goldP} EGP per gram = {goldGrams}g</div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:"10px",color:"#92400E",marginBottom:"4px"}}>Price / gram</div>
+            <div style={{display:"flex",alignItems:"center",gap:"4px"}}>
+              <input type="number" value={goldP} onChange={e=>setGoldP(e.target.value)} style={{width:"72px",padding:"7px",borderRadius:"8px",border:"1.5px solid #FDE68A",textAlign:"center",fontSize:"14px",fontWeight:"bold"}}/>
+              <span style={{fontSize:"11px",color:"#92400E"}}>EGP</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 2. Main Workspace Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', maxWidth: '1000px', margin: '0 auto 40px auto' }}>
-        
-        {/* Branch: Family & Blessings */}
-        <div style={{ backgroundColor: '#FFF5F5', padding: '24px', borderRadius: '24px', border: '2px solid #FFEBEE' }}>
-          <h2 style={{ color: '#C62828', margin: '0 0 4px 0', fontSize: '18px', fontWeight: 'bold' }}>❤️ Family & Roy Support</h2>
-          <p style={{ color: '#EF5350', fontSize: '11px', margin: '0 0 16px 0' }}>Core household & puppy care validation</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', backgroundColor: checklist.familyAndRoy ? '#FFEBEE' : '#ffffff', borderRadius: '12px', border: '1px solid #FFCDD2', cursor: 'pointer' }}>
-              <input type="checkbox" checked={checklist.familyAndRoy} onChange={() => handleCheckChange('familyAndRoy')} style={{ accentColor: '#D32F2F' }} />
-              <span style={{ textDecoration: checklist.familyAndRoy ? 'line-through' : 'none', color: checklist.familyAndRoy ? '#9E9E9E' : '#212121', fontSize: '13px', fontWeight: '500' }}>الأهل + روي 🐕 (6,300)</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', backgroundColor: checklist.charity ? '#FFEBEE' : '#ffffff', borderRadius: '12px', border: '1px solid #FFCDD2', cursor: 'pointer' }}>
-              <input type="checkbox" checked={checklist.charity} onChange={() => handleCheckChange('charity')} style={{ accentColor: '#D32F2F' }} />
-              <span style={{ textDecoration: checklist.charity ? 'line-through' : 'none', color: checklist.charity ? '#9E9E9E' : '#212121', fontSize: '13px', fontWeight: '500' }}>العشور / Charity (1,000)</span>
-            </label>
+      <div style={{...card()}}>
+        {[{label:"Total Outflow",val:fmt(totalSpent)+" EGP",color:"#1F2937"},{label:"Salary",val:fmt(SALARY)+" EGP",color:"#16A34A"},{label:"Extra Cash",val:(extraCash>=0?"+":"")+fmt(extraCash)+" EGP",color:extraCash>=0?"#16A34A":"#DC2626"}].map((row,i,arr)=>(
+          <div key={row.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<arr.length-1?"1px solid #F3F4F6":"none"}}>
+            <span style={{color:"#6B7280",fontSize:"14px"}}>{row.label}</span>
+            <span style={{fontWeight:"bold",fontSize:"14px",color:row.color}}>{row.val}</span>
           </div>
-        </div>
+        ))}
+      </div>
 
-        {/* Branch: Core Savings */}
-        <div style={{ backgroundColor: '#E8F5E9', padding: '24px', borderRadius: '24px', border: '2px solid #C8E6C9', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div>
-            <h2 style={{ color: '#2E7D32', margin: '0 0 4px 0', fontSize: '18px', fontWeight: 'bold' }}>🔒 Future Security Base</h2>
-            <p style={{ color: '#4CAF50', fontSize: '11px', margin: '0 0 16px 0' }}>Protected monthly anchor savings</p>
-            <div style={{ backgroundColor: '#ffffff', padding: '20px', borderRadius: '16px', border: '1px solid #A5D6A7', textAlign: 'center', fontSize: '26px', fontWeight: 'bold', color: '#1B5E20', margin: '15px 0' }}>
-              4,000 EGP
-            </div>
+      <button onClick={()=>alert("Monthly Summary\n\nSalary: "+fmt(SALARY)+" EGP\nTotal Outflow: "+fmt(totalSpent)+" EGP\nGold Savings: "+fmt(F_GOLD)+" EGP\nBirthday Fund: "+fmt(birthdayTotal)+" EGP\nExtra Cash: "+(extraCash>=0?"+":"")+fmt(extraCash)+" EGP")}
+        style={{width:"100%",backgroundColor:"#1E3A5F",color:"#fff",border:"none",padding:"17px",borderRadius:"16px",fontSize:"15px",fontWeight:"bold",cursor:"pointer"}}>
+        Share Monthly Summary
+      </button>
+    </div>
+  );
+
+  const Tracker=()=>(
+    <div style={{padding:"14px"}}>
+      <div style={{...card("#FFF5F5","#FECDD3")}}>
+        <h3 style={{color:"#B91C1C",margin:"0 0 12px 0",fontSize:"15px"}}>Family and Roy Support</h3>
+        {[{f:"family",label:"Family + Roy (6,300 EGP)"},{f:"charity",label:"Charity - Al Oshor (1,000 EGP)"}].map(it=>(
+          <label key={it.f} style={{display:"flex",alignItems:"center",gap:"12px",padding:"12px",backgroundColor:checks[it.f]?"#FEE2E2":"#fff",borderRadius:"12px",border:"1px solid #FECDD3",marginBottom:"8px",cursor:"pointer"}}>
+            <input type="checkbox" checked={checks[it.f]} onChange={()=>toggleCheck(it.f)} style={{accentColor:"#DC2626",width:"18px",height:"18px"}}/>
+            <span style={{textDecoration:checks[it.f]?"line-through":"none",color:checks[it.f]?"#9CA3AF":"#1F2937",fontSize:"14px",fontWeight:"500"}}>{it.label}</span>
+          </label>
+        ))}
+      </div>
+
+      <div style={{...card("#F5F3FF","#DDD6FE")}}>
+        <h3 style={{color:"#6D28D9",margin:"0 0 12px 0",fontSize:"15px"}}>Self Care and Lifestyle</h3>
+        {[{k:"outings",label:"Outings and Trips",target:T_OUTINGS,rem:remOutings},{k:"shopping",label:"Shopping",target:T_SHOPPING,rem:remShopping},{k:"laser",label:"Laser Session",target:T_LASER,rem:remLaser},{k:"gym",label:"Gym Subscription",target:T_GYM,rem:remGym}].map(f=>(
+          <div key={f.k} style={{marginBottom:"12px"}}>
+            <RowLabel label={f.label} target={f.target} rem={f.rem} blue={false}/>
+            <input type="number" value={actual[f.k]||""} placeholder="Enter amount" onChange={e=>setNum(f.k,e.target.value)} style={numInput(f.rem>=0,false)}/>
           </div>
-          <p style={{ color: '#2E7D32', fontSize: '11px', margin: '0', textAlign: 'center', fontStyle: 'italic', fontWeight: '500' }}>Pure Gold accumulation active 🪙</p>
-        </div>
+        ))}
+      </div>
 
-        {/* Branch: Flexible Splitting Fields */}
-        <div style={{ backgroundColor: '#F3E5F5', padding: '24px', borderRadius: '24px', border: '2px solid #E1BEE7', gridColumn: '1 / -1' }}>
-          <h2 style={{ color: '#6A1B9A', margin: '0 0 4px 0', fontSize: '18px', fontWeight: 'bold' }}>✨ Flexible & Self Care Trackers</h2>
-          <p style={{ color: '#8E24AA', fontSize: '11px', margin: '0 0 16px 0' }}>Surplus from Outings, Shopping & Transport goes straight to the Birthday Fund below!</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-            
-            {/* Outings and Trips */}
-<div>
-  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}>
-    <span>☕ Outings & Trips (Target: 2k)</span>
-    <span style={{fontWeight:'bold', color: remainingOutings >= 0 ? '#6A1B9A' : '#D32F2F'}}>
-      {remainingOutings >= 0 ? `Left: ${remainingOutings}` : `Over: +${Math.abs(remainingOutings)}`}
-    </span>
-  </div>
-  <input 
-    type="number" 
-    value={actual.outingsAndTrips || ''} 
-    placeholder="Cafes, trips, travel..." 
-    style={{ width: '100%', padding: '10px', borderRadius: '10px', border: remainingOutings >= 0 ? '1px solid #E1BEE7' : '2px solid #D32F2F', boxSizing: 'border-box' }} 
-    onChange={(e) => handleInputChange('outingsAndTrips', e.target.value)} 
-    
-  />
-</div>
-            {/* Shopping */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}><span>🛍️ Shopping (Target: 1.2k)</span><span style={{fontWeight:'bold', color: remainingShopping >= 0 ? '#6A1B9A' : '#D32F2F'}}>{remainingShopping >= 0 ? `Left: ${remainingShopping}` : `Over: +${Math.abs(remainingShopping)}`}</span></div>
-              <input type="number" value={actual.shopping || ''} placeholder="Clothes, bags, shoes..." style={{ width: '100%', padding: '10px', borderRadius: '10px', border: remainingShopping >= 0 ? '1px solid #E1BEE7' : '2px solid #D32F2F', boxSizing: 'border-box' }} onChange={(e) => handleInputChange('shopping', e.target.value)} />
-            </div>
-
-            {/* Laser */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}><span>⚡ Laser Session (Target: 1.2k)</span><span style={{fontWeight:'bold', color: remainingLaser >= 0 ? '#6A1B9A' : '#D32F2F'}}>{remainingLaser >= 0 ? `Left: ${remainingLaser}` : `Over: +${Math.abs(remainingLaser)}`}</span></div>
-              <input type="number" value={actual.laser || ''} placeholder="Laser session cost..." style={{ width: '100%', padding: '10px', borderRadius: '10px', border: remainingLaser >= 0 ? '1px solid #E1BEE7' : '2px solid #D32F2F', boxSizing: 'border-box' }} onChange={(e) => handleInputChange('laser', e.target.value)} />
-            </div>
-
-            {/* Gym */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}><span>🏋️ Gym Subscription (Target: 800)</span><span style={{fontWeight:'bold', color: remainingGym >= 0 ? '#6A1B9A' : '#D32F2F'}}>{remainingGym >= 0 ? `Left: ${remainingGym}` : `Over: +${Math.abs(remainingGym)}`}</span></div>
-              <input type="number" value={actual.gym || ''} placeholder="Gym subscription..." style={{ width: '100%', padding: '10px', borderRadius: '10px', border: remainingGym >= 0 ? '1px solid #E1BEE7' : '2px solid #D32F2F', boxSizing: 'border-box' }} onChange={(e) => handleInputChange('gym', e.target.value)} />
-            </div>
-
+      <div style={{...card("#EFF6FF","#BFDBFE")}}>
+        <h3 style={{color:"#1D4ED8",margin:"0 0 12px 0",fontSize:"15px"}}>Cairo Living Expenses</h3>
+        {[{k:"food",label:"Supermarket Food",target:T_FOOD,rem:remFood},{k:"transport",label:"Transport and Travel",target:T_TRANSPORT,rem:remTransport}].map(f=>(
+          <div key={f.k} style={{marginBottom:"12px"}}>
+            <RowLabel label={f.label} target={f.target} rem={f.rem} blue={true}/>
+            <input type="number" value={actual[f.k]||""} placeholder="Enter amount" onChange={e=>setNum(f.k,e.target.value)} style={{...numInput(f.rem>=0,true),borderColor:f.rem>=0?"#BFDBFE":"#FECACA"}}/>
           </div>
+        ))}
+        <div>
+          <div style={{fontSize:"12px",marginBottom:"5px",fontWeight:"500",color:"#374151"}}>Rent Room <span style={{color:"#9CA3AF"}}>(Fixed: 5,000)</span></div>
+          <input type="number" value={5000} disabled style={{width:"100%",padding:"10px 12px",borderRadius:"10px",border:"1.5px solid #BFDBFE",fontSize:"14px",backgroundColor:"#F0F4F8",color:"#6B7280",boxSizing:"border-box"}}/>
         </div>
+      </div>
+    </div>
+  );
 
-        {/* Branch: Cairo Living Expenses */}
-        <div style={{ backgroundColor: '#E3F2FD', padding: '24px', borderRadius: '24px', border: '2px solid #BBDEFB', gridColumn: '1 / -1' }}>
-          <h2 style={{ color: '#0D47A1', margin: '0 0 4px 0', fontSize: '18px', fontWeight: 'bold' }}>🏢 Cairo & Living Expenses Room Setup</h2>
-          <p style={{ color: '#1E88E5', fontSize: '11px', margin: '0 0 16px 0' }}>Core operational costs for workspace housing</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}><span>Rent Room (Fixed: 5k)</span></div>
-              <input type="number" value={targetRent} disabled style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #BBDEFB', backgroundColor: '#F0F4F8', boxSizing: 'border-box', color: '#555' }} />
-            </div>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}><span>Supermarket Food (Target: 1.2k)</span><span style={{fontWeight:'bold', color: remainingFood >= 0 ? '#0D47A1' : '#D32F2F'}}>{remainingFood >= 0 ? `Left: ${remainingFood}` : `Over: +${Math.abs(remainingFood)}`}</span></div>
-              <input type="number" value={actual.food || ''} style={{ width: '100%', padding: '10px', borderRadius: '10px', border: remainingFood >= 0 ? '1px solid #BBDEFB' : '2px solid #D32F2F', boxSizing: 'border-box' }} onChange={(e) => handleInputChange('food', e.target.value)} />
-            </div>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}><span>Transport & Travel (Target: 4.5k)</span><span style={{fontWeight:'bold', color: remainingTransport >= 0 ? '#0D47A1' : '#D32F2F'}}>{remainingTransport >= 0 ? `Left: ${remainingTransport}` : `Over: +${Math.abs(remainingTransport)}`}</span></div>
-              <input type="number" value={actual.transport || ''} style={{ width: '100%', padding: '10px', borderRadius: '10px', border: remainingTransport >= 0 ? '1px solid #BBDEFB' : '2px solid #D32F2F', boxSizing: 'border-box' }} onChange={(e) => handleInputChange('transport', e.target.value)} />
-            </div>
+  const Birthdays=()=>{
+    const people=[{name:"Menna",month:"July"},{name:"Friend",month:"August"},{name:"Sister",month:"September"},{name:"Mama",month:"October"},{name:"Baba",month:"April"},{name:"Mariam",month:"June"}];
+    return(
+      <div style={{padding:"14px"}}>
+        <div style={{...card("#FDF2F8","#F9A8D4")}}>
+          <h3 style={{color:"#9D174D",margin:"0 0 4px 0",fontSize:"15px"}}>Birthday Sinking Fund</h3>
+          <p style={{color:"#BE185D",fontSize:"12px",margin:"0 0 14px 0"}}>Base: <b>800 EGP</b> + Surplus from Outings, Shopping and Transport</p>
+          <div style={{backgroundColor:"#fff",borderRadius:"14px",padding:"16px",border:"1px solid #F9A8D4",textAlign:"center",marginBottom:"14px"}}>
+            <div style={{fontSize:"12px",color:"#BE185D",fontWeight:"600"}}>Total Birthday Fund This Month</div>
+            <div style={{fontSize:"34px",fontWeight:"bold",color:"#9D174D"}}>{fmt(birthdayTotal)} EGP</div>
+            <div style={{fontSize:"11px",color:"#9CA3AF",marginTop:"4px"}}>{"800 base + "+surpOutings+" outings + "+surpShopping+" shopping + "+surpTransport+" transport"}</div>
           </div>
-        </div>
-
-        {/* Branch: Sinking Fund (Birthday Registry) */}
-        <div style={{ backgroundColor: '#FFF0F6', padding: '24px', borderRadius: '24px', border: '2px solid #FFD8E4', gridColumn: '1 / -1' }}>
-          <h2 style={{ color: '#9C0F48', margin: '0 0 4px 0', fontSize: '18px', fontWeight: 'bold' }}>🎁 Birthday Gifts Tracker (Sinking Fund)</h2>
-          <p style={{ color: '#D2145A', fontSize: '12px', margin: '0 0 16px 0' }}>
-            Base Allowance: <b>800 EGP</b> | Total Pot This Month: <span style={{ fontSize: '16px', fontWeight: 'bold' }}>{currentMonthBirthdayFundTotal.toLocaleString()} EGP</span>
-          </p>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
-            {[
-              { name: 'منة 🌸', month: 'July' },
-              { name: 'صاحبك 👦', month: 'August' },
-              { name: 'أختك 👭', month: 'September' },
-              { name: 'ماما 👩', month: 'October' },
-              { name: 'بابا 👨', month: 'April' },
-              { name: 'مريم 🌸', month: 'June' }
-            ].map((person, i) => (
-              <div key={i} style={{ backgroundColor: '#ffffff', padding: '12px', borderRadius: '14px', border: '1px solid #FFC0D3', textAlign: 'center' }}>
-                <span style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', color: '#4A4A4A' }}>{person.name}</span>
-                <span style={{ fontSize: '11px', color: '#9C0F48', fontWeight: '500' }}>Month {person.month}</span>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
+            {people.map((p,i)=>(
+              <div key={i} style={{backgroundColor:"#fff",padding:"14px",borderRadius:"14px",border:"1px solid #FFC0D3",textAlign:"center"}}>
+                <div style={{fontSize:"15px",fontWeight:"bold",color:"#1F2937"}}>{p.name}</div>
+                <div style={{fontSize:"11px",color:"#9D174D",fontWeight:"500",marginTop:"4px"}}>Month: {p.month}</div>
               </div>
             ))}
           </div>
         </div>
-
       </div>
+    );
+  };
 
-      {/* 3. Yearly Ledger Tracking System */}
-      <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '28px', border: '2px solid #F1EDE4', maxWidth: '1000px', margin: '0 auto', boxShadow: '0 10px 25px rgba(0,0,0,0.02)' }}>
-        <h2 style={{ color: '#2C3E35', margin: '0 0 4px 0', fontSize: '22px', fontWeight: 'bold' }}>📅 2026 Yearly Ledger Dashboard</h2>
-        <p style={{ color: '#7A8B76', fontSize: '13px', margin: '0 0 20px 0' }}>Save current numbers into your long-term annual report tracker</p>
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', flexWrap: 'wrap', backgroundColor: '#FAF9F5', padding: '14px', borderRadius: '16px', border: '1px solid #EAE6DF' }}>
-          <span style={{ fontSize: '13px', fontWeight: '600' }}>Log current active numbers into:</span>
-          <select value={selectedMonthLog} onChange={(e) => setSelectedMonthLog(e.target.value)} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '13px', fontWeight: '500' }}>
-            {yearlyHistory.map(item => <option key={item.month} value={item.month}>{item.month}</option>)}
-          </select>
-          <button onClick={logCurrentMonthToYear} style={{ backgroundColor: '#2C3E35', color: '#ffffff', border: 'none', padding: '9px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>💾 Save Month Data</button>
+  const Ledger=()=>(
+    <div style={{padding:"14px"}}>
+      <div style={{...card()}}>
+        <h3 style={{color:"#1F2937",margin:"0 0 4px 0",fontSize:"15px"}}>2026 Yearly Ledger</h3>
+        <p style={{color:"#6B7280",fontSize:"12px",margin:"0 0 14px 0"}}>Save and track each month data</p>
+        <div style={{backgroundColor:"#F9FAFB",padding:"12px",borderRadius:"12px",border:"1px solid #E5E7EB",marginBottom:"14px"}}>
+          <div style={{fontSize:"12px",fontWeight:"600",color:"#374151",marginBottom:"8px"}}>Log current numbers into:</div>
+          <div style={{display:"flex",gap:"8px"}}>
+            <select value={logMonth} onChange={e=>setLogMonth(e.target.value)} style={{flex:1,padding:"8px",borderRadius:"8px",border:"1px solid #D1D5DB",fontSize:"13px"}}>
+              {ALL_MONTHS.map(m=><option key={m} value={m}>{m}</option>)}
+            </select>
+            <button onClick={saveMonth} style={{backgroundColor:"#1E3A5F",color:"#fff",border:"none",padding:"8px 14px",borderRadius:"8px",fontSize:"13px",fontWeight:"bold",cursor:"pointer"}}>Save</button>
+          </div>
         </div>
-
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid #EAE6DF', color: '#7A8B76' }}>
-                <th style={{ padding: '12px 8px' }}>Month Sequence</th>
-                <th style={{ padding: '12px 8px' }}>Core Gold Savings</th>
-                <th style={{ padding: '12px 8px' }}>Extra Cash Saved</th>
-                <th style={{ padding: '12px 8px' }}>Total Outflow/Spent</th>
-                <th style={{ padding: '12px 8px' }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {yearlyHistory.map((item) => (
-                <tr key={item.month} style={{ borderBottom: '1px solid #F5F2EB', backgroundColor: item.status !== 'Upcoming' ? '#F7FAF8' : 'transparent' }}>
-                  <td style={{ padding: '14px 8px', fontWeight: '600', color: '#333E37' }}>{item.month}</td>
-                  <td style={{ padding: '14px 8px', color: '#1B5E20', fontWeight: 'bold' }}>{item.savings.toLocaleString()} EGP</td>
-                  <td style={{ padding: '14px 8px', color: '#0D47A1', fontWeight: 'bold' }}>{(item.extraCashSaved || 0).toLocaleString()} EGP</td>
-                  <td style={{ padding: '14px 8px', color: '#4A4A4A' }}>{item.spent.toLocaleString()} EGP</td>
-                  <td style={{ padding: '14px 8px' }}>
-                    <span style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '6px', fontWeight: 'bold', backgroundColor: item.status !== 'Upcoming' ? '#D1FAE5' : '#E2E8F0', color: item.status !== 'Upcoming' ? '#065F46' : '#475569' }}>
-                      {item.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {history.map(it=>(
+          <div key={it.month} style={{backgroundColor:it.status!=="Upcoming"?"#F0FFF4":"#FAFAFA",borderRadius:"12px",padding:"12px 14px",marginBottom:"8px",border:"1px solid "+(it.status!=="Upcoming"?"#BBF7D0":"#E5E7EB")}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontWeight:"600",fontSize:"14px",color:"#1F2937"}}>{it.month}</span>
+              <span style={{fontSize:"11px",padding:"3px 8px",borderRadius:"6px",fontWeight:"bold",backgroundColor:it.status!=="Upcoming"?"#D1FAE5":"#E5E7EB",color:it.status!=="Upcoming"?"#065F46":"#6B7280"}}>{it.status}</span>
+            </div>
+            {it.status!=="Upcoming"&&(
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginTop:"10px"}}>
+                {[{label:"Gold Savings",val:fmt(it.savings),color:"#16A34A"},{label:"Extra Cash",val:fmt(it.extraCash||0),color:"#1D4ED8"},{label:"Total Spent",val:fmt(it.spent),color:"#6B7280"}].map(col=>(
+                  <div key={col.label} style={{textAlign:"center"}}>
+                    <div style={{fontSize:"10px",color:"#6B7280"}}>{col.label}</div>
+                    <div style={{fontSize:"13px",fontWeight:"bold",color:col.color}}>{col.val}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
+    </div>
+  );
 
+  const TABS=[{id:"dashboard",label:"Dashboard"},{id:"tracker",label:"Tracker"},{id:"birthdays",label:"Birthdays"},{id:"ledger",label:"Ledger"}];
+
+  return(
+    <div style={{backgroundColor:"#FDFBF7",minHeight:"100vh",maxWidth:"430px",margin:"0 auto",fontFamily:"'Segoe UI',system-ui,sans-serif",paddingBottom:"80px",position:"relative"}}>
+      {!isFamilyDone&&(
+        <div style={{backgroundColor:"#DC2626",color:"#fff",padding:"11px 16px",textAlign:"center",fontWeight:"bold",fontSize:"13px"}}>
+          Action Required: Family Support and Charity not cleared yet!
+        </div>
+      )}
+      <div style={{padding:"16px 16px 0",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+        <div>
+          <h1 style={{margin:0,fontSize:"26px",fontWeight:"bold",color:"#1F2937",lineHeight:1.2}}>Marmar Budget Hub</h1>
+          <div style={{fontSize:"13px",color:"#16A34A",fontWeight:"600",marginTop:"4px"}}>Salary: {fmt(SALARY)} EGP</div>
+        </div>
+        <button onClick={resetMonth} style={{backgroundColor:"#FEF2F2",color:"#DC2626",border:"none",borderRadius:"12px",padding:"10px 14px",cursor:"pointer",fontSize:"13px",fontWeight:"bold",marginTop:"4px"}}>Reset</button>
+      </div>
+      <div style={{margin:"12px 14px",backgroundColor:"#F9FAFB",borderRadius:"14px",padding:"12px 14px",border:"1px solid #E5E7EB",fontSize:"13px",color:"#374151"}}>{motivation}</div>
+      {tab==="dashboard"&&<Dashboard/>}
+      {tab==="tracker"&&<Tracker/>}
+      {tab==="birthdays"&&<Birthdays/>}
+      {tab==="ledger"&&<Ledger/>}
+      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:"430px",backgroundColor:"#fff",borderTop:"1px solid #E5E7EB",display:"flex",zIndex:100}}>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)}
+            style={{flex:1,padding:"12px 0 8px",border:"none",backgroundColor:"transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",color:tab===t.id?"#1D4ED8":"#9CA3AF"}}>
+            <span style={{fontSize:"12px",fontWeight:tab===t.id?"700":"400"}}>{t.label}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
